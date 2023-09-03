@@ -72,7 +72,6 @@ void equals (char *pattern, char *result, char *casename) {
 // cmd: 命令			pattern: 应返回的结果		casename：测试的名称
 // 比如测试 SET NAME ZXM，cmd="SET NAME ZXM", pattern="SUCCESS\r\n", 测试的名称casename
 void test_case (int connfd, char *cmd, char *pattern, char *casename) {
-
 	char result[MAX_MSG_LENGTH] = {0};
 	// 发送命令cmd
 	send_msg(connfd, cmd);
@@ -120,6 +119,20 @@ void hash_testcase_10w (int connfd) {
 	for (i = 0; i < TEST_COUNT; i++) {
 		char msg[512] = {0};
 		snprintf(msg, 512, "HSET key%d value%d", i ,i);
+
+		char casenames[64] = {0};
+		snprintf(casenames, 64, "casename%d", i);
+		test_case(connfd, msg, "SUCCESS\r\n", casenames);
+	}
+}
+
+//------------------------------------- hash 测试 ---------------------------------
+
+void dhash_testcase_10w (int connfd) {
+	int i = 0;
+	for (i = 0; i < TEST_COUNT; i++) {
+		char msg[512] = {0};
+		snprintf(msg, 512, "DSET key%d value%d", i ,i);
 
 		char casenames[64] = {0};
 		snprintf(casenames, 64, "casename%d", i);
@@ -261,6 +274,45 @@ void hash_testcase(int connfd ){
 
 }
 
+
+//------------------------------------- dhash 测试 ---------------------------------
+
+void dhash_testcase(int connfd ){
+	test_case(connfd, "DSET Name zxm", "SUCCESS\r\n", "DSetNameCase");
+	test_case(connfd, "DCOUNT", "1\r\n", "DCOUNTCase");
+
+	test_case(connfd, "DSET Sex man", "SUCCESS\r\n", "DSetNameCase");
+	test_case(connfd, "DCOUNT", "2\r\n", "DCOUNT");
+
+	test_case(connfd, "DSET Score 100", "SUCCESS\r\n", "DSetNameCase");
+	test_case(connfd, "DCOUNT", "3\r\n", "DCOUNT");
+
+	test_case(connfd, "DSET Nationality China", "SUCCESS\r\n", "DSetNameCase");
+	test_case(connfd, "DCOUNT", "4\r\n", "DCOUNT");
+	
+	test_case(connfd, "DEXIST Name", "1\r\n", "DEXISTCase");
+	test_case(connfd, "DGET Name", "zxm\r\n", "DGetNameCase");
+	test_case(connfd, "DDELETE Name", "SUCCESS\r\n", "DDELETECase");
+	test_case(connfd, "DCOUNT", "3\r\n", "DCOUNT");
+	test_case(connfd, "DEXIST Name", "0\r\n", "DEXISTCase");
+
+	test_case(connfd, "DEXIST Sex", "1\r\n", "DEXISTCase");
+	test_case(connfd, "DGET Sex", "man\r\n", "DGetNameCase");
+	test_case(connfd, "DDELETE Sex", "SUCCESS\r\n", "DDELETECase");
+	test_case(connfd, "DCOUNT", "2\r\n", "DCOUNT");
+
+	test_case(connfd, "DEXIST Score", "1\r\n", "DEXISTCase");
+	test_case(connfd, "DGET Score", "100\r\n", "DGetNameCase");
+	test_case(connfd, "DDELETE Score", "SUCCESS\r\n", "DDELETECase");
+	test_case(connfd, "DCOUNT", "1\r\n", "DCOUNT");
+
+	test_case(connfd, "DEXIST Nationality", "1\r\n", "DEXISTCase");
+	test_case(connfd, "DGET Nationality", "China\r\n", "DGetNameCase");
+	test_case(connfd, "DDELETE Nationality", "SUCCESS\r\n", "DDELETECase");
+	test_case(connfd, "DCOUNT", "0\r\n", "DCOUNT");
+
+}
+
 //------------------------------------- skiptable 测试 ---------------------------------
 
 void skiptable_testcase(int connfd ){
@@ -357,6 +409,20 @@ int main(int argc, char *argv[]) {
 
 	printf("time_used: %d, qps: %d (request/second)\n", hash_time_used, (TEST_COUNT / hash_time_used) * 1000);
 
+	// dhash
+	printf(" ---------> dhash testcase 10w <-----------\n");
+	struct timeval dhash_begin;
+	gettimeofday(&dhash_begin, NULL);
+
+	dhash_testcase_10w(connfd);
+
+	struct timeval dhash_end;
+	gettimeofday(&dhash_end, NULL);
+
+	int dhash_time_used = TIME_SUB_MS(dhash_end, dhash_begin);
+
+	printf("time_used: %d, qps: %d (request/second)\n", dhash_time_used, (TEST_COUNT / dhash_time_used) * 1000);
+
 	// skiptable
 	printf(" ---------> skiptable testcase 10w <-----------\n");
 	struct timeval skiptable_begin;
@@ -383,6 +449,10 @@ int main(int argc, char *argv[]) {
 	// hash
 	printf(" ---------> hash testcase <-----------\n");
 	hash_testcase(connfd);
+
+	// hash
+	printf(" ---------> dhash testcase <-----------\n");
+	dhash_testcase(connfd);
 
 	// skiptable
 	printf(" ---------> skiptable testcase <-----------\n");

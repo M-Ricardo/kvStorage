@@ -5,6 +5,7 @@
 #include "hash.h"
 #include "rbtree.h"
 #include "skiptable.h"
+#include "dhash.h"
 
 #include <arpa/inet.h>
 
@@ -44,6 +45,13 @@ typedef enum kvs_cmd_e {
 	KVS_CMD_HDELETE,
 	KVS_CMD_HEXIST,
 
+	// dhash
+	KVS_CMD_DSET,
+	KVS_CMD_DGET,
+	KVS_CMD_DCOUNT,
+	KVS_CMD_DDELETE,
+	KVS_CMD_DEXIST,
+
 	// skiptable
 	KVS_CMD_ZSET,
 	KVS_CMD_ZGET,
@@ -66,6 +74,7 @@ const char *commands[] = {
 	"SET", "GET", "COUNT", "DELETE", "EXIST",
 	"RSET", "RGET", "RCOUNT", "RDELETE", "REXIST",
 	"HSET", "HGET", "HCOUNT", "HDELETE", "HEXIST",
+	"DSET", "DGET", "DCOUNT", "DDELETE", "DEXIST",
 	"ZSET", "ZGET", "ZCOUNT", "ZDELETE", "ZEXIST"
 
 };
@@ -265,6 +274,36 @@ int kvs_hash_delete(char *key) {
 	return delete_kv_hashtable(&hash, key);
 }
 
+//-------------------------------------- dhash -----------------------------------------
+hash_table *dhash = NULL;
+hash_table* init_dhashtable(){
+    hash_table *table = create_hash_table(INITIAL_SIZE);
+    if (!table){
+        return NULL;
+    }
+    return dhash = table;
+}
+
+int kvs_dhash_set(char *key, char *value)  {
+	return put_kv_dhashtable(dhash, key, value);
+}
+
+char *kvs_dhash_get(char *key) {
+	printf("key: %s\n",key);
+	return 	get_kv_dhashtable(dhash, key);
+}
+
+int kvs_dhash_count(void) {
+	return count_kv_dhashtable(dhash);
+}
+
+int kvs_dhash_exist(char *key) {
+	return exist_kv_dhashtable(dhash, key);
+}
+
+int kvs_dhash_delete(char *key) {
+	return delete_kv_dhashtable(dhash, key);
+}
 
 //----------------------------------- skiptable --------------------------------------
 
@@ -297,6 +336,7 @@ void init_kvengine(void) {
 	init_rbtree(&tree);
 	init_hashtable(&hash);
 	init_skiptable(&table);
+	init_dhashtable();
 }
 
 
@@ -314,7 +354,6 @@ void dest_kvengine(void) {
 
 // 根据msg，解析其具体的命令协议
 int kvs_parser_protocol (char *msg, char **tokens, int count) {
-
 	if (tokens == NULL || tokens[0] == NULL || count == 0) {
 		return KVS_CMD_ERROR;
 	}
@@ -535,6 +574,77 @@ int kvs_parser_protocol (char *msg, char **tokens, int count) {
 	}
 
 
+	//----------------------------------- dhash --------------------------------------
+	case KVS_CMD_DSET: {
+		assert(count == 3);		// SET NAME ZXM，应该有三个
+
+		int ret = 0;
+		int res = kvs_dhash_set(tokens[1], tokens[2]);
+		if (!res) {
+			memset(msg, 0, CLINET_MSG_LENGTH);
+			ret = snprintf(msg, CLINET_MSG_LENGTH, "SUCCESS\r\n");
+		} else {
+			memset(msg, 0, CLINET_MSG_LENGTH);
+			ret = snprintf(msg, CLINET_MSG_LENGTH, "FAILED\r\n");			
+		}
+		//print_dhash(dhash);
+		return ret;
+	}
+
+	case KVS_CMD_DGET: {
+		assert(count == 2);
+
+		int ret = 0;
+		char *value = kvs_dhash_get(tokens[1]);
+		if (value) {
+			memset(msg, 0, CLINET_MSG_LENGTH);
+			ret = snprintf(msg, CLINET_MSG_LENGTH, "%s\r\n", value);
+		} else {
+			memset(msg, 0, CLINET_MSG_LENGTH);
+			ret = snprintf(msg, CLINET_MSG_LENGTH, "FAILED: NO EXIST\r\n");
+		}
+
+		return ret;
+	}
+
+	case KVS_CMD_DCOUNT: {
+		assert(count == 1);
+
+		int res = kvs_dhash_count();
+		
+		memset(msg, 0, CLINET_MSG_LENGTH);
+		int ret = snprintf(msg, CLINET_MSG_LENGTH, "%d\r\n", res);
+
+		return ret;
+	}
+
+	case KVS_CMD_DDELETE: {
+		assert(count == 2);
+
+		int ret = 0;
+		int res = kvs_dhash_delete(tokens[1]);
+		if (!res) {
+			memset(msg, 0, CLINET_MSG_LENGTH);
+			ret = snprintf(msg, CLINET_MSG_LENGTH, "SUCCESS\r\n");
+		} else {
+			memset(msg, 0, CLINET_MSG_LENGTH);
+			ret = snprintf(msg, CLINET_MSG_LENGTH, "FAILED\r\n");
+		}
+		return ret;
+	}
+	case KVS_CMD_DEXIST: {
+		assert(count == 2);
+
+		int res = kvs_dhash_exist(tokens[1]);
+		
+		memset(msg, 0, CLINET_MSG_LENGTH);
+		int ret = snprintf(msg, CLINET_MSG_LENGTH, "%d\r\n", res);
+
+		return ret;
+	}
+
+
+
 	//----------------------------------- skiptable --------------------------------------
 
 	case KVS_CMD_ZSET: {
@@ -632,15 +742,13 @@ int kvs_spilt_tokens (char **tokens, char *msg) {
 
 // 解析协议
 int kvs_protocol (char *msg, int length) {
-
 	char *tokens[MAX_TOKENS] = {0};
 	// 分割msg
 	int count = kvs_spilt_tokens(tokens, msg);
-
 	// 根据分割后的 msg ，解析其具体命令协议
 	// msg：命令    tokens：分割后的 msg   
-	return kvs_parser_protocol(msg, tokens, count);
-
+	INFO("msg: %s, count: %d\n",msg,count);
+	return  kvs_parser_protocol(msg, tokens, count);
 }
 
 

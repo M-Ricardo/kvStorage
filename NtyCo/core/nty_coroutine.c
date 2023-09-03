@@ -72,7 +72,7 @@ __asm__ (
 "       ret                                              \n"
 );
 
-
+// 将协程的状态设置为已退出，并通知调度器该协程已经完成执行。
 static void _exec(void *lt) {
 	nty_coroutine *co = (nty_coroutine*)lt;
 	co->func(co->arg);

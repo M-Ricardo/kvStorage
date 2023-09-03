@@ -63,8 +63,8 @@ void server(void *arg) {
 
             gettimeofday(&tv_begin, NULL);
             int time_used = TIME_SUB_MS(tv_begin, tv_cur);
-            printf("client fd : %d\n", cli_fd);
-            //printf("client fd : %d, time_used: %d\n", cli_fd, time_used);
+            //printf("client fd : %d\n", cli_fd);
+            printf("client fd : %d, time_used: %d\n", cli_fd, time_used);
         }
         nty_coroutine *read_co;
         nty_coroutine_create(&read_co, server_reader, &cli_fd);
