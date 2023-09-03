@@ -1,5 +1,5 @@
 # kvStorage
-
+CSDN [从零实现kv存储](https://blog.csdn.net/Ricardo2/article/details/132305173)
 # 一、项目主要功能和知识点
 参照redis，主要实现的功能：  
 1、数据的插入、查询、删除等操作  
